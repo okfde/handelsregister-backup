@@ -331,7 +331,7 @@ if __name__ == "__main__":
     if args.socksproxy != "":
         import socks
         import socket
-        socks.set_default_proxy(socks.SOCKS5, args.socksproxy, 9150)
+        socks.set_default_proxy(socks.SOCKS5, args.socksproxy, args.proxyport)
         socket.socket = socks.socksocket
 
     # counter for certain errors
