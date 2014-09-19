@@ -49,12 +49,11 @@ You should see an output like this:
 
     Creating 500000 jobs...
     Register number: 198387
-    1 entries found
+    1 entry found
     Register number: 447721
-    0 entries found
     ...
     Register number: 381187
-    1 entries found
+    2 entries found
     Resolved 10 jobs in 53 seconds. 499991 jobs, 30.8 days remaining
 
 
