@@ -183,5 +183,5 @@ A city or locality string, indicating the city of residence of the organization.
 ### `last_seen`
 
 The date when this entry has been last found and written to our database. This is
-useful when you want to update your database. After a complete run, this field
+useful when you want to update your database. After several complete runs, this field
 helps you to identify outdated entries.
