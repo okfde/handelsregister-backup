@@ -19,20 +19,28 @@ Note: This takes a lot of time.
 
 1. Clone this repository:
 
-    $ git clone https://github.com/okfde/handelsregister-backup.git
+```
+$ git clone https://github.com/okfde/handelsregister-backup.git
+```
 
 2. Change into the new directory
 
-    $ cd handelsregister-backup
+```
+$ cd handelsregister-backup
+```
 
 3. Create and start a virtual python environment:
 
-    $ virtualenv venv
-    $ source venv/bin/activate
+```
+$ virtualenv venv
+$ source venv/bin/activate
+```
 
 4. Install the required Python modules
 
-    $ pip install -r requirements.txt
+```
+$ pip install -r requirements.txt
+```
 
 That's it.
 
