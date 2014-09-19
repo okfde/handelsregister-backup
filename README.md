@@ -29,7 +29,7 @@ Then change into the new directory
 $ cd handelsregister-backup
 ```
 
-Create and start a virtual python environment:
+Create and start a virtual python environment (optional, but recommended):
 
 ```
 $ virtualenv venv
