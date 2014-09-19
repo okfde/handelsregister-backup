@@ -12,6 +12,7 @@ from math import floor
 import httplib
 import mechanize
 from BeautifulSoup import BeautifulSoup
+import urllib2
 
 
 def dict_factory(cursor, row):
