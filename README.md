@@ -19,7 +19,7 @@ Note: This takes a lot of time.
 
 1. Clone this repository:
 
-    $ git clone https://github.com/marians/handelsregister-backup.git
+    $ git clone https://github.com/okfde/handelsregister-backup.git
 
 2. Change into the new directory
 
