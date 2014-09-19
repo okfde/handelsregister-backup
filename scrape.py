@@ -228,6 +228,9 @@ def resolve_job(regnum):
         if args.verbose:
             sys.stderr.write("Error 5: URLError\n")
         return
+    except socks.SOCKS5Error, e:
+        sys.stderr.write("Fatal error: %s\n" % e)
+        sys.exit(2)
 
     allforms = list(br.forms())
     if len(allforms) == 0:
