@@ -246,7 +246,12 @@ def resolve_job(regnum):
     br['ergebnisseProSeite'] = [str(config.ITEMS_PER_PAGE)]
     
     wait()
-    response = br.submit()
+    try:
+        response = br.submit()
+    except httplib.BadStatusLine:
+        if args.verbose:
+            sys.stderr.write("Error 8: Bad HTTP Status.\n")
+        return
     try:
         html = response.read()
     except httplib.IncompleteRead:
