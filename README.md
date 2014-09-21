@@ -136,6 +136,12 @@ You can double check by visiting www.handelsregister.de.
 There is a config variable ERROR_1_LIMIT which defines how often this error
 may occur before the script automatically quits.
 
+### SIGHUP Proxy on Error
+
+You can pass the TOR process ID to the scraper and it will send the SIGHUP signal which results in a new TOR IP address.
+
+    $ python scrape.py -v -s 127.0.0.1 -p 9150 --proxypid 1234
+
 ## Data
 
 The database created by the script contains a table called `organizations` which will

@@ -2,6 +2,8 @@
 
 import config
 import sys
+import os
+import signal
 import argparse
 import sqlite3
 import random
@@ -239,7 +241,14 @@ def resolve_job(regnum):
         if error_1_count >= config.ERROR_1_LIMIT:
             sys.stderr.write("Maximum of %d error 1 occurrences reached. Exiting.\n" % config.ERROR_1_LIMIT)
             sys.exit(1)
+        if args.proxypid is not False:
+            sys.stderr.write("Sending SIGHUP to proxy process, sleeping %d seconds.\n" % config.SIGHUP_SLEEP)
+            os.kill(args.proxypid, signal.SIGHUP)
+            time.sleep(config.SIGHUP_SLEEP)
         return
+    else:
+        # Reset count if everything works fine
+        error_1_count = 0
     
     br.form = allforms[0]
     br['registerNummer'] = str(regnum)
@@ -316,6 +325,9 @@ if __name__ == "__main__":
     argparser.add_argument("-p", "--proxyport", dest="proxyport",
         type=int, default=config.DEFAULT_PROXY_PORT,
         help="Use this SOCKS5 proxy server (e. g. for use woth Tor)")
+    argparser.add_argument("--proxypid", dest="proxypid",
+        type=int, default=False,
+        help="Send SIGUP signal to process with pid on error")
     argparser.add_argument("-v", "--verbose", dest="verbose", action="store_true",
         help="Give verbose output")
     args = argparser.parse_args()

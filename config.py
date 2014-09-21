@@ -30,6 +30,12 @@ ITEMS_PER_PAGE = 100
 #
 DEFAULT_PROXY_PORT = 9150
 
+# If proxy process is sighup'ed
+# how long in seconds should we wait
+# for next try?
+#
+SIGHUP_SLEEP = 10.0
+
 # How often can error one (no form found)
 # occur before we quit?
 #
