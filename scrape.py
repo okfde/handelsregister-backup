@@ -262,6 +262,11 @@ def resolve_job(regnum):
         if args.verbose:
             sys.stderr.write("Error 8: Bad HTTP Status.\n")
         return
+    except mechanize._response.httperror_seek_wrapper:
+        if args.verbose:
+            sys.stderr.write("Error 10: Remote server unavailable.\n")
+        return
+    
     try:
         html = response.read()
     except httplib.IncompleteRead:
