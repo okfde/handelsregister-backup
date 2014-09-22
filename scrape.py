@@ -242,7 +242,8 @@ def resolve_job(regnum):
             sys.stderr.write("Maximum of %d error 1 occurrences reached. Exiting.\n" % config.ERROR_1_LIMIT)
             sys.exit(1)
         if args.proxypid is not False:
-            sys.stderr.write("Sending SIGHUP to proxy process, sleeping %d seconds.\n" % config.SIGHUP_SLEEP)
+            if args.verbose:
+                sys.stderr.write("Sending SIGHUP to proxy process, sleeping %d seconds.\n" % config.SIGHUP_SLEEP)
             os.kill(args.proxypid, signal.SIGHUP)
             time.sleep(config.SIGHUP_SLEEP)
         return
