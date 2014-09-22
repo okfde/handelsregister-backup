@@ -243,7 +243,7 @@ def resolve_job(regnum):
             sys.exit(1)
         if args.proxypid is not False:
             if args.verbose:
-                sys.stderr.write("Sending SIGHUP to proxy process, sleeping %d seconds.\n" % config.SIGHUP_SLEEP)
+                sys.stderr.write("Restarting proxy process, sleeping %d seconds.\n" % config.SIGHUP_SLEEP)
             os.kill(args.proxypid, signal.SIGHUP)
             time.sleep(config.SIGHUP_SLEEP)
         return
