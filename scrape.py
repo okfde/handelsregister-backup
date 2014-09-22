@@ -268,6 +268,10 @@ def resolve_job(regnum):
         if args.verbose:
             sys.stderr.write("Error 6: Incomplete response.\n")
         return
+    except mechanize._response.httperror_seek_wrapper:
+        if args.verbose:
+            sys.stderr.write("Error 9: Remote server unavailable.\n")
+        return
 
     num_results = get_num_results(html)
     if num_results is None:
