@@ -226,9 +226,9 @@ def resolve_job(regnum):
         if args.verbose:
             sys.stderr.write("Error 4: Incomplete response.\n")
         return
-    except urllib2.URLError:
+    except urllib2.URLError, e:
         if args.verbose:
-            sys.stderr.write("Error 5: URLError\n")
+            sys.stderr.write("Error 5: URLError: %s\n" % e)
         return
     except socks.SOCKS5Error, e:
         sys.stderr.write("Fatal error: %s\n" % e)
