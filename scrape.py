@@ -226,6 +226,10 @@ def resolve_job(regnum):
         if args.verbose:
             sys.stderr.write("Error 4: Incomplete response.\n")
         return
+    except httplib.BadStatusLine:
+        if args.verbose:
+            sys.stderr.write("Error 11: Bad status line.\n")
+        return
     except urllib2.URLError, e:
         if args.verbose:
             sys.stderr.write("Error 5: URLError: %s\n" % e)
