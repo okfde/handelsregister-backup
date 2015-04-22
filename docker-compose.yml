@@ -1,0 +1,25 @@
+mysql:
+  image: mysql:5.5
+  environment:
+    MYSQL_ROOT_PASSWORD: rootpwd
+    MYSQL_DATABASE: mydb
+  #ports:
+  # - "3306:3306"
+  volumes:
+   - docker-volumes/mysql:/var/lib/mysql
+torproxy:
+  image: mattes/rotating-proxy:latest
+  environment:
+    tors: 25
+scraper:
+  build: .
+  links:
+   - mysql
+   - torproxy
+  environment:
+    http_proxy: http://torproxy:5566
+    MYSQL_HOST: mysql
+    MYSQL_PORT: 3306
+    MYSQL_USER: root
+    MYSQL_PASS: rootpwd
+    MYSQL_DB: mydb

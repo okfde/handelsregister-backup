@@ -1,3 +1,4 @@
 mechanize
 PySocks
 BeautifulSoup
+MySQL-python==1.2.5

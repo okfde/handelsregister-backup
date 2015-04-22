@@ -1,10 +1,14 @@
-# encoding: utf8
+# coding: utf8
 
-# The path/file name of our local SQLite database.
-# If it doesn't exist, the database file will be
-# generated upon startup.
+import os
+
+# Database settings
 #
-DB_PATH = 'orgdata.db'
+DB_HOST = os.getenv('MYSQL_HOST')
+DB_PORT = os.getenv('MYSQL_PORT')
+DB_USER = os.getenv('MYSQL_USER')
+DB_PASS = os.getenv('MYSQL_PASS')
+DB_NAME = os.getenv('MYSQL_DB')
 
 # The number range to be searched
 #

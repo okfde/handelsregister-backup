@@ -5,11 +5,13 @@ import sys
 import os
 import signal
 import argparse
-import sqlite3
+import MySQLdb
+import MySQLdb.cursors
+import _mysql_exceptions
 import random
 import time
 import re
-from datetime import datetime
+from datetime import date
 from math import floor
 import httplib
 import mechanize
@@ -17,44 +19,44 @@ from BeautifulSoup import BeautifulSoup
 import urllib2
 
 
-def dict_factory(cursor, row):
-    """For convenient dict access of sqlite results"""
-    d = {}
-    for idx, col in enumerate(cursor.description):
-        d[col[0]] = row[idx]
-    return d
-
-
 def init():
     """
     Initialize the database 
     """
+    if args.verbose:
+        print("Initializing database")
     cursor = db.cursor()
-    cursor.execute("""CREATE TABLE
-        IF NOT EXISTS
-        jobs
-        (num INT)""")
-    cursor.execute("""CREATE UNIQUE INDEX
-        IF NOT EXISTS
-        jobsnum
-        ON jobs(num)""")
-    cursor.execute("""CREATE TABLE
-        IF NOT EXISTS
-        organizations
-        (
-            state TEXT,
-            court TEXT,
-            register_type TEXT,
-            idnum TEXT,
-            name TEXT,
-            location TEXT,
-            last_seen TEXT DEFAULT CURRENT_DATE
-        )""")
-    cursor.execute("""CREATE UNIQUE INDEX
-        IF NOT EXISTS
-        orguniq
-        ON organizations(court, register_type, idnum)""")
-    db.commit()
+    try:
+        cursor.execute("SELECT * FROM jobs LIMIT 1")
+    except:
+        cursor.execute("""CREATE TABLE
+            IF NOT EXISTS
+            jobs
+            (num INT UNIQUE)""")
+        db.commit()
+        if args.verbose:
+            print("Created table 'jobs'")
+
+    try:
+        cursor.execute("SELECT * FROM organizations LIMIT 1")
+    except:
+        cursor.execute("""CREATE TABLE
+            IF NOT EXISTS
+            organizations
+            (
+                state VARCHAR(80),
+                court VARCHAR(255),
+                register_type VARCHAR(10),
+                idnum VARCHAR(255),
+                name VARCHAR(255),
+                location VARCHAR(255),
+                last_seen DATE
+            )""")
+        cursor.execute("""CREATE UNIQUE INDEX orguniq
+            ON organizations (court, register_type, idnum)""")
+        if args.verbose:
+            print("Created table 'organizations'")
+        db.commit()
 
 
 def empty_jobqueue():
@@ -92,21 +94,21 @@ def create_jobs():
         print("Creating %d jobs..." % n)
     cursor = db.cursor()
     for n in range(config.MIN_REGISTER_NUMBER, config.MAX_REGISTER_NUMBER + 1):
-        cursor.execute("INSERT INTO jobs (num) VALUES (?)", (n,))
+        cursor.execute("INSERT INTO jobs (num) VALUES (%s)", (n,))
     db.commit()
 
 
 def get_job():
     """returns a random job"""
     cursor = db.cursor()
-    cursor.execute("SELECT num FROM jobs ORDER BY random() LIMIT 1")
+    cursor.execute("SELECT num FROM jobs ORDER BY RAND() LIMIT 1")
     return cursor.fetchone()["num"]
 
 
 def remove_job(num):
     """Remove the job with the given number from the queue"""
     cursor = db.cursor()
-    cursor.execute("DELETE FROM jobs WHERE num=?", (num, ))
+    cursor.execute("DELETE FROM jobs WHERE num=%s", (num, ))
     db.commit()
 
 
@@ -137,7 +139,7 @@ def clean_spaces(t):
 
 def random_ua_string():
     """Returns a randomly selected user agent strings"""
-    return random.sample(config.USER_AGENTS, 1)[0]
+    return random.choice(config.USER_AGENTS)
 
 
 def save_result_items(html):
@@ -177,16 +179,20 @@ def save_result_items(html):
                 'idnum': idnum,
                 'name': clean_spaces(name_field),
                 'location': clean_spaces(location_field),
-                'last_seen': datetime.utcnow().strftime("%Y-%m-%d")
+                'last_seen': date.today()
             }
-            sql = """INSERT OR REPLACE INTO organizations
+            sql = """INSERT INTO organizations
                 (state, court, register_type, idnum, name, location, last_seen)
-                VALUES (?, ?, ?, ?, ?, ?, ?)"""
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE name=%s, location=%s, last_seen=%s"""
             cursor.execute(sql, (
                 record['state'],
                 record['court'],
                 record['register_type'],
                 record['idnum'],
+                record['name'],
+                record['location'],
+                record['last_seen'],
                 record['name'],
                 record['location'],
                 record['last_seen']))
@@ -346,8 +352,22 @@ if __name__ == "__main__":
         help="Give verbose output")
     args = argparser.parse_args()
 
-    db = sqlite3.connect(config.DB_PATH)
-    db.row_factory = dict_factory
+    db_connect_tries = 10
+    while db_connect_tries > 0:
+        try:
+            db = MySQLdb.connect(host=config.DB_HOST,
+                port=int(config.DB_PORT),
+                user=config.DB_USER,
+                passwd=config.DB_PASS,
+                db=config.DB_NAME,
+                use_unicode=True,
+                charset="UTF8",
+                cursorclass=MySQLdb.cursors.DictCursor)
+            db_connect_tries = 0
+        except _mysql_exceptions.OperationalError:
+            db_connect_tries -= 1
+            print("Waiting another 5 seconds for MySQL...")
+            time.sleep(5)
 
     # set up the database
     init()
