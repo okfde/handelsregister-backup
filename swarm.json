@@ -1,0 +1,67 @@
+{
+  "app_name": "handelsregister",
+  "services": [
+    {
+      "service_name": "mysql",
+      "components": [
+        {
+          "component_name": "mysql",
+          "image": "mysql:5.5",
+          "env": {
+            "MYSQL_ROOT_PASSWORD": "rootpwd",
+            "MYSQL_DATABASE": "mydb"
+          },
+          "volumes": [
+            {
+              "path": "/var/lib/mysql",
+              "size": "2 GB"
+            }
+          ],
+          "ports": [ 3306 ]
+        }
+      ]
+    },
+    {
+    	"service_name": "torproxy",
+      "components": [
+        {
+          "component_name": "torproxy",
+          "image": "mattes/rotating-proxy:latest",
+          "env": {
+            "tors": "10"
+          },
+          "ports": [ 5566 ]
+        }
+      ]
+    },
+    {
+    	"service_name": "scraper",
+      "components": [
+        {
+          "component_name": "scraper",
+          "image": "marian/handelsregister-scraper:latest",
+          "env": {
+          	"http_proxy": "http://torproxy:5566",
+				    "MYSQL_HOST": "mysql",
+				    "MYSQL_PORT": "3306",
+				    "MYSQL_USER": "root",
+				    "MYSQL_PASS": "rootpwd",
+				    "MYSQL_DB": "mydb"
+          },
+          "dependencies": [
+            {
+            	"alias": "torproxy",
+              "name": "torproxy/torproxy",
+              "port": 5566
+            },
+            {
+            	"alias": "mysql",
+              "name": "mysql/mysql",
+              "port": 3306
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
