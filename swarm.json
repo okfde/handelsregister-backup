@@ -39,7 +39,7 @@
       "components": [
         {
           "component_name": "scraper",
-          "image": "marian/handelsregister-scraper:latest",
+          "image": "registry.giantswarm.io/marian/handelsregister-scraper:latest",
           "env": {
           	"http_proxy": "http://torproxy:5566",
 				    "MYSQL_HOST": "mysql",
