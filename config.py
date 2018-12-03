@@ -18,6 +18,7 @@ WAIT_MAX = 2.0
 
 # The base url for register searches
 #
+BASE_URL = "https://www.handelsregister.de"
 HANDELSREGISTER_URL = "https://www.handelsregister.de/rp_web/mask.do?Typ=e"
 
 # The number of search results we'd like

@@ -1,3 +1,5 @@
-mechanize
+requests
 PySocks
-BeautifulSoup
+requests[socks]
+multidict
+lxml

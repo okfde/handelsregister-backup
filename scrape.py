@@ -1,6 +1,3 @@
-# encoding: utf8
-
-import config
 import sys
 import os
 import signal
@@ -11,10 +8,44 @@ import time
 import re
 from datetime import datetime
 from math import floor
-import httplib
-import mechanize
-from BeautifulSoup import BeautifulSoup
-import urllib2
+
+from lxml import html as etree
+from multidict import MultiDict
+import requests
+
+import config
+
+
+def get_tor_session():
+    session = requests.Session()
+    # Tor uses the 9050 port as the default socks port
+    session.proxies = {'http':  'socks5://127.0.0.1:9050',
+                       'https': 'socks5://127.0.0.1:9050'}
+    session.headers.update({'User-agent': random_ua_string()})
+    return session
+
+
+def get_form_data_from_form(form):
+    form_data = MultiDict()
+    for el in form.xpath('.//input[@name]|select[@name]|textarea[@name]|button[@name]'):
+        data = {}
+        if el.tag == 'input':
+            if el.attrib.get('type') == 'radio' or el.attrib.get('type') == 'checkbox':
+                if el.attrib.get('checked', None):
+                    data[el.attrib['name']] = el.attrib.get('value', '')
+            else:
+                data[el.attrib['name']] = el.attrib.get('value', '')
+        elif el.tag == 'select':
+            options = el.xpath('./option[@selected]')
+            if options:
+                data[el.attrib['name']] = options[0].attrib.get('value', '')
+        elif el.tag == 'textarea':
+            data[el.sttrib['name']] = el.text or ''
+        elif el.tag == 'button':
+            if el.attrib.get('type', None) == 'submit':
+                data[el.attrib['name']] = el.attrib.get('value', '')
+        form_data.extend(data)
+    return form_data
 
 
 def dict_factory(cursor, row):
@@ -120,12 +151,12 @@ def duration_string(sec):
     """Formats a time interval to a readable string"""
     sec = float(int(sec))
     if sec > 60 * 60 * 24:
-        return "%.1f days" %  (sec / float(60 * 60 * 24))
+        return "%.1f days" % (sec / float(60 * 60 * 24))
     if sec > 60 * 60:
-        return "%.1f hours" %  (sec / float(60 * 60))
+        return "%.1f hours" % (sec / float(60 * 60))
     if sec > 60:
-        return "%.1f minutes" %  (sec / float(60))
-    return "%d seconds" %  sec
+        return "%.1f minutes" % (sec / float(60))
+    return "%d seconds" % sec
 
 
 def clean_spaces(t):
@@ -142,55 +173,63 @@ def random_ua_string():
 
 def save_result_items(html):
     """Retrieves content from search result HTML"""
+    html_parts = re.split('<tr>\s*<td\s+colspan="[0-9]"\s+class="RegPortErg_AZ">', html)
+    if not len(html_parts):
+        return
+
     cursor = db.cursor()
     count = 0
-    html_parts = re.split('<tr>\s*<td\s+colspan="[0-9]"\s+class="RegPortErg_AZ">', html)
-    if len(html_parts):
-        html = ("</table>\n\n" + '<table class="scrapableTable"><tr><td class="RegPortErg_AZ">').join(html_parts)
-        soup = BeautifulSoup(html)
-        items = soup.findAll("table", {"class": "scrapableTable"})
-        for table in items:
-            state_field = table.find("td", {"class": "RegPortErg_AZ"}).contents[0].strip()
-            title_field = clean_spaces(table.find("td", {"class": "RegPortErg_AZ"}).find("b").string.strip())
-            name_field = table.find("td", {"class": "RegPortErg_FirmaKopf"}).contents[0].strip().replace('&amp;', '&').replace('&quot;', '"').replace('&#39;', "'")
-            try:
-                location_field = table.find("td", {"class": "RegPortErg_SitzStatusKopf"}).contents[0].strip()
-            except IndexError:
-                print table.find("td", {"class": "RegPortErg_SitzStatusKopf"})
-                location_field = ''
+    html = ("</table>\n\n" + '<table class="scrapableTable"><tr><td class="RegPortErg_AZ">').join(html_parts)
+    root = etree.fromstring(html)
+    items = root.xpath('.//table[@class="scrapableTable"]')
+    for table in items:
+        state_field = table.xpath('.//td[@class="RegPortErg_AZ"]')[0].text_content().strip()
+        # state_field = table.find("td", {"class": "RegPortErg_AZ"}).contents[0].strip()
+        title_field = table.xpath('.//td[@class="RegPortErg_AZ"]/b')[0].text_content().strip()
+        state_field = state_field.replace(title_field, '')
+        title_field = clean_spaces(title_field)
+        # title_field = clean_spaces(table.find("td", {"class": "RegPortErg_AZ"}).find("b").string.strip())
+        name_field = table.xpath('.//td[@class="RegPortErg_FirmaKopf"]')[0].text_content().strip()
+        # name_field = table.find("td", {"class": "RegPortErg_FirmaKopf"}).contents[0].strip().replace('&amp;', '&').replace('&quot;', '"').replace('&#39;', "'")
+        try:
+            location_field = table.xpath('.//td[@class="RegPortErg_SitzStatusKopf"]')[0].text_content().strip()
+            # location_field = table.find("td", {"class": "RegPortErg_SitzStatusKopf"}).contents[0].strip()
+        except IndexError:
+            # printtable.find("td", {"class": "RegPortErg_SitzStatusKopf"})
+            location_field = ''
 
-            m = re.search(r"Amtsgericht\s+(.+)\s+([GHRBVPAn]{2,3})\s+([0-9]+.*)", title_field)
-            court = None
-            register_type = None
-            idnum = None
-            if m is not None:
-                count += 1
-                court = m.group(1).strip()
-                register_type = m.group(2).strip()
-                idnum = m.group(3).strip()
-            else:
-                sys.stderr.write("PROBLEM: title_field has no match: %s" % title_field)
-            record = {
-                'state': clean_spaces(state_field),
-                'court': court,
-                'register_type': register_type,
-                'idnum': idnum,
-                'name': clean_spaces(name_field),
-                'location': clean_spaces(location_field),
-                'last_seen': datetime.utcnow().strftime("%Y-%m-%d")
-            }
-            sql = """INSERT OR REPLACE INTO organizations
-                (state, court, register_type, idnum, name, location, last_seen)
-                VALUES (?, ?, ?, ?, ?, ?, ?)"""
-            cursor.execute(sql, (
-                record['state'],
-                record['court'],
-                record['register_type'],
-                record['idnum'],
-                record['name'],
-                record['location'],
-                record['last_seen']))
-                
+        m = re.search(r"Amtsgericht\s+(.+)\s+([GHRBVPAn]{2,3})\s+([0-9]+.*)", title_field)
+        court = None
+        register_type = None
+        idnum = None
+        if m is not None:
+            count += 1
+            court = m.group(1).strip()
+            register_type = m.group(2).strip()
+            idnum = m.group(3).strip()
+        else:
+            sys.stderr.write("PROBLEM: title_field has no match: %s" % title_field)
+        record = {
+            'state': clean_spaces(state_field),
+            'court': court,
+            'register_type': register_type,
+            'idnum': idnum,
+            'name': clean_spaces(name_field),
+            'location': clean_spaces(location_field),
+            'last_seen': datetime.utcnow().strftime("%Y-%m-%d")
+        }
+        sql = """INSERT OR REPLACE INTO organizations
+            (state, court, register_type, idnum, name, location, last_seen)
+            VALUES (?, ?, ?, ?, ?, ?, ?)"""
+        cursor.execute(sql, (
+            record['state'],
+            record['court'],
+            record['register_type'],
+            record['idnum'],
+            record['name'],
+            record['location'],
+            record['last_seen']))
+
     db.commit()
     return count
 
@@ -215,30 +254,17 @@ def resolve_job(regnum):
     will be taken care of with another attempt.
     """
     global error_1_count
-    br = mechanize.Browser()
-    br.addheaders = [("User-agent", random_ua_string())]
-    br.set_handle_robots(False)
-
+    session = get_tor_session()
     wait()
     try:
-        br.open(config.HANDELSREGISTER_URL).read()
-    except httplib.IncompleteRead:
+        response = session.get(config.HANDELSREGISTER_URL)
+    except requests.exceptions.RequestException as e:
         if args.verbose:
-            sys.stderr.write("Error 4: Incomplete response.\n")
+            sys.stderr.write("Error: %s.\n" % e)
         return
-    except httplib.BadStatusLine:
-        if args.verbose:
-            sys.stderr.write("Error 11: Bad status line.\n")
-        return
-    except urllib2.URLError, e:
-        if args.verbose:
-            sys.stderr.write("Error 5: URLError: %s\n" % e)
-        return
-    except socks.SOCKS5Error, e:
-        sys.stderr.write("Fatal error: %s\n" % e)
-        sys.exit(2)
 
-    allforms = list(br.forms())
+    root = etree.fromstring(response.text)
+    allforms = root.xpath('.//form')
     if len(allforms) == 0:
         error_1_count += 1
         sys.stderr.write("Error 1: No form found on initial page.\n")
@@ -254,35 +280,23 @@ def resolve_job(regnum):
     else:
         # Reset count if everything works fine
         error_1_count = 0
-    
-    br.form = allforms[0]
-    br['registerNummer'] = str(regnum)
-    br['ergebnisseProSeite'] = [str(config.ITEMS_PER_PAGE)]
-    
+
+    form = allforms[0]
+    form_data = get_form_data_from_form(form)
+    form_data['registerNummer'] = str(regnum)
+    form_data['ergebnisseProSeite'] = [str(config.ITEMS_PER_PAGE)]
+
     wait()
     try:
-        response = br.submit()
-    except httplib.BadStatusLine:
+        response = session.post(config.BASE_URL + form.attrib['action'], data=form_data)
+    except requests.exceptions.RequestException as e:
         if args.verbose:
-            sys.stderr.write("Error 8: Bad HTTP Status.\n")
-        return
-    except:
-        if args.verbose:
-            sys.stderr.write("Error 10: Unknown network error.\n")
-        return
-    
-    try:
-        html = response.read()
-    except httplib.IncompleteRead:
-        if args.verbose:
-            sys.stderr.write("Error 6: Incomplete response.\n")
-        return
-    except mechanize._response.httperror_seek_wrapper:
-        if args.verbose:
-            sys.stderr.write("Error 9: Remote server unavailable.\n")
+            sys.stderr.write("Error: %s.\n" % e)
         return
 
-    num_results = get_num_results(html)
+    html = response.content
+
+    num_results = get_num_results(response.text)
     if num_results is None:
         sys.stderr.write("Error 7: No results on page.\n")
         return
@@ -297,24 +311,23 @@ def resolve_job(regnum):
     # while search result is too big, hit "double result" link
     while num_results is None:
         wait()
-        br.click_link(url='/rp_web/search.do?doppelt')
-        html = br.response().read()
-        num_results = get_num_results(html)
-
+        response = session.get(url=config.BASE_URL + '/rp_web/search.do?doppelt')
+        num_results = get_num_results(response.text)
+    html = response.text
     num_found = save_result_items(html)
     current_page = 1
     if num_results > config.ITEMS_PER_PAGE:
         num_pages = int(floor(num_results / config.ITEMS_PER_PAGE) + 1)
         while current_page < num_pages:
             wait()
-            try:
-                response = br.follow_link(text=str(current_page + 1))
-                html = response.read()
-                num_found += save_result_items(html)
-            except mechanize._mechanize.LinkNotFoundError:
+            root = etree.fromstring(html)
+            links = root.xpath('.//a[text()="%s"]')
+            if not links:
                 if args.verbose:
                     sys.stderr.write("Error 3: Pagination link %d not found.\n" % (current_page + 1))
                 return
+            html = session.get(config.BASE_URL + links[0].attrib['href'])
+            num_found += save_result_items(html)
             current_page += 1
     if num_found != num_results:
         if args.verbose:
@@ -323,6 +336,7 @@ def resolve_job(regnum):
 
     remove_job(j)
     return True
+
 
 if __name__ == "__main__":
 
@@ -334,11 +348,11 @@ if __name__ == "__main__":
     argparser.add_argument("--resetorgs", dest="resetorgs",
         action="store_true", default=False,
         help="Empty the organization table before starting (data loss!)")
-    argparser.add_argument("-s", "--socksproxy", dest="socksproxy", default="",
-        help="Use this SOCKS5 proxy server (e. g. for use woth Tor)")
-    argparser.add_argument("-p", "--proxyport", dest="proxyport",
-        type=int, default=config.DEFAULT_PROXY_PORT,
-        help="Use this SOCKS5 proxy server (e. g. for use woth Tor)")
+    # argparser.add_argument("-s", "--socksproxy", dest="socksproxy", default="",
+    #     help="Use this SOCKS5 proxy server (e. g. for use woth Tor)")
+    # argparser.add_argument("-p", "--proxyport", dest="proxyport",
+    #     type=int, default=config.DEFAULT_PROXY_PORT,
+    #     help="Use this SOCKS5 proxy server (e. g. for use woth Tor)")
     argparser.add_argument("--proxypid", dest="proxypid",
         type=int, default=False,
         help="Send SIGUP signal to process with pid on error")
@@ -360,13 +374,6 @@ if __name__ == "__main__":
 
     if not has_jobs():
         create_jobs()
-
-    # set up proxy
-    if args.socksproxy != "":
-        import socks
-        import socket
-        socks.set_default_proxy(socks.SOCKS5, args.socksproxy, args.proxyport)
-        socket.socket = socks.socksocket
 
     # counter for certain errors
     error_1_count = 0
