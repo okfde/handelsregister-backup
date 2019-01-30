@@ -326,7 +326,8 @@ def resolve_job(regnum):
                 if args.verbose:
                     sys.stderr.write("Error 3: Pagination link %d not found.\n" % current_page)
                 return
-            html = session.get(config.BASE_URL + links[0].attrib['href'])
+            response = session.get(config.BASE_URL + links[0].attrib['href'])
+            html = response.text
             num_found += save_result_items(html)
             current_page += 1
     if num_found != num_results:
