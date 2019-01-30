@@ -315,16 +315,16 @@ def resolve_job(regnum):
         num_results = get_num_results(response.text)
     html = response.text
     num_found = save_result_items(html)
-    current_page = 1
+    current_page = 2
     if num_results > config.ITEMS_PER_PAGE:
         num_pages = int(floor(num_results / config.ITEMS_PER_PAGE) + 1)
-        while current_page < num_pages:
+        while current_page < num_pages + 1:
             wait()
             root = etree.fromstring(html)
-            links = root.xpath('.//a[text()="%s"]')
+            links = root.xpath('.//a[text()="%s"]' % current_page)
             if not links:
                 if args.verbose:
-                    sys.stderr.write("Error 3: Pagination link %d not found.\n" % (current_page + 1))
+                    sys.stderr.write("Error 3: Pagination link %d not found.\n" % current_page)
                 return
             html = session.get(config.BASE_URL + links[0].attrib['href'])
             num_found += save_result_items(html)
